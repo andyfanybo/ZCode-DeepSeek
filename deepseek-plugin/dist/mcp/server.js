@@ -59,6 +59,30 @@ const MODEL_ALIASES = {
   "deepseek-v4-flash": ["deepseek-flash"],
 };
 
+/**
+ * 端点返回的 id 需要规范化到 ZCode 内置画像认识的写法。
+ *
+ * ZCode 运行时按模型 id 决定「档位怎么发参数」（zcode.cjs 里的 HCo/Khr/KCo）：
+ *   - id 以 `deepseek-v4` 开头 → 深度档位画像，每档带 effort + thinking 预算；
+ *   - 其它含 `deepseek` 的 id      → 只有开关画像（enabled/disabled），**任何档位都不会发出 effort**。
+ *
+ * `deepseek-flash` 属于后者：界面上档位照常可选，但选了什么都不会带参数（实测确认）。
+ * 而 `deepseek-flash` 与 `deepseek-v4-flash` 指向同一个模型（接口都接受），所以统一用后者。
+ */
+const MODEL_ID_CANONICAL = {
+  "deepseek-flash": "deepseek-v4-flash",
+};
+
+/** 该模型 id 是否会命中 ZCode 的 DeepSeek 深度档位画像（否则档位不会带参数）。 */
+function matchesBuiltinDeepSeekProfile(modelId) {
+  return modelId.trim().toLowerCase().startsWith("deepseek-v4");
+}
+
+function canonicalModelId(modelId) {
+  const id = modelId.trim();
+  return MODEL_ID_CANONICAL[id] || id;
+}
+
 const SERVER_INFO = { name: PLUGIN_MARK, version: "0.1.0" };
 const DEFAULT_PROTOCOL_VERSION = "2025-06-18";
 
@@ -328,6 +352,8 @@ async function sync(options = {}) {
     skipped: [],
     kept: [],
     otherProviders: [],
+    migrated: [],
+    degraded: [],
     fetchError: null,
     dryRun,
     wrote: false,
@@ -414,7 +440,19 @@ async function sync(options = {}) {
   }
   report.providerId = providerId;
 
-  for (const modelId of modelIds) {
+  // 迁移：把端点返回的非规范 id（如 deepseek-flash）整条搬到规范 id（deepseek-v4-flash）下。
+  // 两者是同一个模型，但只有以 deepseek-v4 开头的 id 会命中 ZCode 的档位画像，
+  // 否则档位能选却不发参数。已有规范条目时不动，避免覆盖。
+  for (const [legacyId, canonicalId] of Object.entries(MODEL_ID_CANONICAL)) {
+    if (legacyId === canonicalId || !provider.models[legacyId]) continue;
+    if (provider.models[canonicalId]) continue;
+    provider.models[canonicalId] = provider.models[legacyId];
+    delete provider.models[legacyId];
+    report.migrated.push(`${legacyId} → ${canonicalId}`);
+  }
+
+  for (const rawModelId of modelIds) {
+    const modelId = canonicalModelId(rawModelId);
     const existing = provider.models[modelId];
     const state = existing ? reasoningState(existing) : { levelNames: [], complete: false };
     // 传已有的档位名进去，保留用户/应用定义的档位集合与顺序
@@ -467,7 +505,7 @@ async function sync(options = {}) {
   // 或用户手工添过的模型）。只补全「有档位名却没有每档参数」的，绝不新增档位，
   // 以免给非推理模型凭空加上思考档位。
   for (const [modelId, model] of Object.entries(provider.models)) {
-    if (modelIds.includes(modelId)) continue;
+    if (modelIds.map(canonicalModelId).includes(modelId)) continue;
     const state = reasoningState(model);
     if (state.levelNames.length === 0 || state.complete) continue;
     const entry = buildModelEntry(modelId, state.levelNames);
@@ -488,8 +526,25 @@ async function sync(options = {}) {
     report.wrote = true;
   }
 
+  // 供应商里遗留的、不匹配内置画像的 deepseek id：档位能选但不发参数。
+  // 插件不删用户/应用的模型，只提醒。
+  report.degraded = Object.keys(provider.models).filter(
+    (modelId) => /deepseek/i.test(modelId) && !matchesBuiltinDeepSeekProfile(modelId),
+  );
+
   if (report.fetchError) {
     report.messages.push(`拉取模型列表失败（${report.fetchError}）：未写入任何模型，请稍后调用 deepseek_sync 重试。`);
+  }
+  if (report.migrated.length > 0) {
+    report.messages.push(
+      `模型 id 已规范化：${report.migrated.join("、")}（ZCode 按 id 前缀决定档位画像，` +
+        "以 deepseek-v4 开头的 id 才会让每档真正发出 effort 参数）。",
+    );
+  }  if (report.degraded.length > 0) {
+    report.messages.push(
+      `注意：${report.degraded.join("、")} 这些 id 不匹配 ZCode 内置的 DeepSeek 档位画像，` +
+        "选任何档位都不会发出 effort 参数。建议在「设置 → 模型供应商」里删掉它们，改用规范化后的 id。",
+    );
   }
   if (changed) {
     report.messages.push("配置已更新：需要重启 ZCode（或新开会话）后才会加载新的供应商/模型/档位。");
@@ -521,6 +576,7 @@ function formatReport(report) {
     lines.push(`补全档位参数（原有档位只有名字、没有每档参数）：${report.completed.join(", ")}`);
   }
   if (report.updated.length) lines.push(`刷新档位：${report.updated.join(", ")}`);
+  if (report.migrated.length) lines.push(`模型 id 规范化：${report.migrated.join(", ")}`);
   if (report.skipped.length) lines.push(`跳过（已有等价模型）：${report.skipped.join(", ")}`);
   if (report.unchanged.length) lines.push(`无变化：${report.unchanged.join(", ")}`);
   if (report.kept.length) {
@@ -580,8 +636,11 @@ async function statusReport() {
     const state = reasoningState(model);
     const scope = isPluginManaged(model) ? "插件管理" : state.complete ? "用户配置" : "档位缺参数，sync 可补全";
     const context = model?.limit?.context ?? "?";
+    const profileWarning = matchesBuiltinDeepSeekProfile(modelId)
+      ? ""
+      : "  ⚠ id 不匹配内置画像：档位能选但不会发出 effort 参数";
     lines.push(
-      `  - ${modelId}  档位：${state.levelNames.length ? state.levelNames.join("/") : "无"}  上下文：${context}  [${scope}]`,
+      `  - ${modelId}  档位：${state.levelNames.length ? state.levelNames.join("/") : "无"}  上下文：${context}  [${scope}]${profileWarning}`,
     );
   }
   const others = findOtherDeepSeekProviderIds(providers, providerId);

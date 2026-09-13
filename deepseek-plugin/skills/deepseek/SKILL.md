@@ -22,7 +22,9 @@ description: 用 DeepSeek 插件的 MCP 工具检查状态、拉取模型、同�
 - `models.<modelId>`：`limit`（上下文/输出）、`modalities`（纯文本）、`reasoning` 与 `reasoningSpec` 两套档位定义；
 - `zcode.plugin = "deepseek"`：插件在自己写入的模型条目上留的归属标记，用于判断「这是我写的，可以刷新」还是「这是用户写的，别动」。
 
-档位定义 = 每个档位一组 provider options（`anthropic.effort` + `anthropic.thinking`），ZCode 运行时会把它翻译成请求体里的 `output_config.effort` 和 `thinking`。默认档位表在 `dist/mcp/server.js` 的 `THINKING_LEVELS`。
+档位定义 = 每个档位一组 provider options（`anthropic.effort` + `anthropic.thinking`），默认档位表在 `dist/mcp/server.js` 的 `THINKING_LEVELS`。
+
+**但要注意（实测）**：写进配置的档位只决定界面上列出哪些档位，**不决定实际发出的参数**。每档参数由 ZCode 运行时按模型 id 匹配内置画像给出：以 `deepseek-v4` 开头的 id → 深度画像（`high`/`max` 带 effort）；其它 `deepseek*` id → 只有开关画像，**任何档位都不发 effort**。所以模型 id 必须规范化成 `deepseek-v4-*`（插件会自动做），而内置画像里没有的档位（如 `low`）选了什么都不会带参数，需要 Z.ai 侧补画像才能实现。
 
 ## 语义与边界
 

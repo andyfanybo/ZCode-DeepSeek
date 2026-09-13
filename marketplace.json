@@ -8,7 +8,7 @@
       "description_i18n": {
         "zh-CN": "DeepSeek 供应商：只填一个 API Key，自动同步模型与思考档位（关/低/高/最高）。"
       },
-      "version": "0.1.3",
+      "version": "0.1.4",
       "author": {
         "name": "andyfanybo"
       },
