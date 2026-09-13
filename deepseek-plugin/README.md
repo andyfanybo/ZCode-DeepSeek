@@ -175,7 +175,7 @@ node scripts/test-client.mjs --dry-run                   # 只预览，不落盘
 - **已有模型的 `modalities` 不会被改写**：插件只补缺失字段。如果你之前把 DeepSeek 模型声明成了 `image/video` 输入，插件不会纠正（挂图仍会失败）；想修就删掉该模型条目重新同步，或手工改成 `["text"]`。
 - **`关` 不是硬关闭**：ZCode 的 Anthropic 请求构造器只发 `thinking:{type:"enabled"}`，`disabled` 时它直接省略 thinking 参数。实测 DeepSeek 在这种情况下仍返回一个空的 thinking 块。
 - **Key 的存储**：方式 A 会把 Key 明文存在 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek.api_key`，并（因为填了值）写一份到供应商的 `options.apiKey`。不想让插件落副本就用方式 B（插件字段留空），Key 只存在于 ZCode 自己的供应商配置里。
-- **插件进程启动在配置读取之后**：首次填 Key 后必须重启（或新开会话）才会生效。
+- **插件进程启动在配置读取之后 → 插件的改动要「下一次启动」才可见**：ZCode 在**启动时**把供应商/模型读进内存，而插件是在**会话开始后**（MCP 服务器启动）才写配置的。所以「第一次重启」只让插件完成写入，「第二次重启」界面才会显示新供应商/新模型 id。实测确认：插件 15:36:09 把 `deepseek-flash` 迁移成 `deepseek-v4-flash` 并落盘，但界面仍是旧 id，再一次重启后才更新。判断依据永远看 `~/.zcode/v2/config.json`（插件每次写入都会留 `config.json.deepseek-plugin.bak` 作为写入前快照）。
 - **API Key 有两个来源**：插件设置里的值优先；为空时回退到供应商配置里的 Key。两者都没有时插件不做任何事，`deepseek_status` 会提示该怎么补。
 
 ## 排障
