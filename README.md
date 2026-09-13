@@ -63,7 +63,7 @@
 - 发布时打 tag（`git tag v0.1.0 && git push --tags`），用户就能用 `#v0.1.0` 锁定版本。
 - 想换成 zip/CDN 分发，就把 `source` 改成 `{"source":"url","type":"zip","url":"https://...","sha256":"...","path":"deepseek-plugin"}`（官方在用这种形态）。
 
-## 安全提示（请在 README 里对用户讲清楚）
+## 安全提示
 
 这个插件会**修改用户的 ZCode 配置** `~/.zcode/v2/config.json`：新增/更新一个 DeepSeek 供应商、给它写模型与思考档位、并在插件字段填了 Key 时写入 `options.apiKey`（明文，与 ZCode 自身保存 provider key 的方式一致）。它只增不改（默认不覆盖已有的档位配置），每次写入前会备份成 `config.json.deepseek-plugin.bak`。
 
