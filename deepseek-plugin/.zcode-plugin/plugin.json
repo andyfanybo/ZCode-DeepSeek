@@ -1,6 +1,6 @@
 {
   "name": "deepseek",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek provider for ZCode: fill in one API key and the plugin provisions the provider, its models, and per-model thinking levels into ZCode's provider store.",
   "author": {
     "name": "andyfanybo"
@@ -12,8 +12,7 @@
     "api_key": {
       "type": "string",
       "title": "DeepSeek API Key",
-      "description": "在 https://platform.deepseek.com 生成。保存在插件设置里，通过环境变量注入插件进程，不会出现在命令行中；不填写则插件不做任何改动。",
-      "sensitive": true,
+      "description": "在 https://platform.deepseek.com 生成。保存在本机 ZCode 的插件配置里（明文）；也可以留空，改为在「设置 → 模型供应商」的 DeepSeek 供应商里填 Key，插件会复用而不另存副本。两种方式任选其一。",
       "required": false,
       "default": ""
     },

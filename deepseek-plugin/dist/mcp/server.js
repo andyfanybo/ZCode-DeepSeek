@@ -172,9 +172,11 @@ async function fetchModelIds(baseURL, apiKey, timeoutMs = 10000) {
 /** 把档位表编译成 ZCode 认识的两种形态（两者都写，避免不同版本只认其中一种）。 */
 function buildReasoningLevels(preferredNames = []) {
   const known = new Map(THINKING_LEVELS.map((level) => [level.name, level]));
-  // 保留模型原有的档位名与顺序，再补上档位表里有、但它没有的
+  // 先按档位表的顺序排列（界面里排序自然），再把表里没有的自定义档位按原顺序追加。
   const keep = preferredNames.filter((name) => typeof name === "string" && name.trim());
-  const names = [...keep, ...THINKING_LEVELS.map((level) => level.name).filter((name) => !keep.includes(name))];
+  const tableNames = THINKING_LEVELS.map((level) => level.name);
+  const extra = keep.filter((name) => !known.has(name));
+  const names = [...tableNames, ...extra];
 
   const providerOptionsByLevel = {};
   const specLevels = {};
@@ -289,6 +291,7 @@ async function sync(options = {}) {
     adopted: false,
     created: false,
     apiKeyWritten: false,
+    keySource: null,
     added: [],
     levelAdded: [],
     completed: [],
@@ -301,11 +304,6 @@ async function sync(options = {}) {
     wrote: false,
     messages: [],
   };
-
-  if (!apiKey) {
-    report.messages.push("未配置 API Key：跳过开通。请在插件设置里填入 DeepSeek API Key，然后重启 ZCode。");
-    return report;
-  }
 
   const configPath = await resolveConfigPath();
   if (!configPath) {
@@ -329,6 +327,18 @@ async function sync(options = {}) {
   const existing = providers[providerId] || null;
   const effectiveBaseURL = (existing?.options?.baseURL || "").trim() || baseURL;
 
+  // API Key 有两个来源：插件设置里填的值，或用户已经为 DeepSeek 供应商配好的那个。
+  // 后者让用户可以完全不把 Key 交给插件（改为在「设置 → 模型供应商」里维护）。
+  const providerKey = typeof existing?.options?.apiKey === "string" ? existing.options.apiKey.trim() : "";
+  const effectiveKey = apiKey || providerKey;
+  report.keySource = apiKey ? "plugin" : providerKey ? "provider" : null;
+  if (!effectiveKey) {
+    report.messages.push(
+      "未配置 API Key：请在插件设置里填入 DeepSeek API Key，或在「设置 → 模型供应商」里为 DeepSeek 供应商配好 Key，任选其一。",
+    );
+    return report;
+  }
+
   // 拉模型列表。DEEPSEEK_PLUGIN_MODELS 是调试用覆盖（跳过 /models 调用）。
   const mockedModels = (process.env.DEEPSEEK_PLUGIN_MODELS || "")
     .split(",")
@@ -336,7 +346,7 @@ async function sync(options = {}) {
     .filter(Boolean);
   let modelIds = [];
   try {
-    modelIds = mockedModels.length > 0 ? mockedModels : await fetchModelIds(effectiveBaseURL, apiKey);
+    modelIds = mockedModels.length > 0 ? mockedModels : await fetchModelIds(effectiveBaseURL, effectiveKey);
   } catch (error) {
     report.fetchError = error instanceof Error ? error.message : String(error);
     report.messages.push(
@@ -364,7 +374,8 @@ async function sync(options = {}) {
   if (typeof provider.options.baseURL !== "string" || !provider.options.baseURL.trim()) {
     provider.options.baseURL = baseURL;
   }
-  if (typeof provider.options.apiKey !== "string" || provider.options.apiKey !== apiKey) {
+  // 只在插件里确实填了 Key、且与现值不同时才写；Key 来自供应商自身时不动它。
+  if (apiKey && provider.options.apiKey !== apiKey) {
     provider.options.apiKey = apiKey;
     report.apiKeyWritten = true;
   }
@@ -467,6 +478,7 @@ function formatReport(report) {
     lines.push(`供应商：${report.providerId}（${origin}）`);
   }
   if (report.apiKeyWritten) lines.push("API Key：已写入（不回显内容）");
+  else if (report.keySource === "provider") lines.push("API Key：使用供应商里已有的 Key（插件未保存副本）");
   if (report.added.length) lines.push(`新增模型：${report.added.join(", ")}`);
   if (report.levelAdded.length) lines.push(`补写档位：${report.levelAdded.join(", ")}`);
   if (report.completed.length) {
@@ -506,16 +518,27 @@ async function statusReport() {
 
   const providerId = findExistingProviderId(providers);
   if (!providerId) {
-    lines.push("供应商：未找到 DeepSeek 供应商。填入 API Key 后重启 ZCode，插件会自动创建。");
+    lines.push("供应商：未找到 DeepSeek 供应商。");
+    lines.push(
+      defaults.apiKey
+        ? "填入的 Key 已就绪，重启 ZCode 后插件会自动创建供应商。"
+        : "请填入 API Key（插件设置），或在「设置 → 模型供应商」里手动创建一个 DeepSeek 供应商并填上 Key。",
+    );
     return lines.join("\n");
   }
 
   const provider = providers[providerId];
   const models = Object.keys(provider.models || {});
+  const providerKey = typeof provider.options?.apiKey === "string" ? provider.options.apiKey.trim() : "";
+  const effectiveSource = defaults.apiKey ? "插件设置" : providerKey ? "供应商配置" : null;
   lines.push(`供应商：${providerId}（${provider.name || "未命名"}）`);
   lines.push(`端点：${provider.options?.baseURL ?? "未设置"}`);
-  lines.push(`API Key（配置内）：${provider.options?.apiKey ? "已配置" : "未配置"}`);
   lines.push(`模型：${models.length} 个`);
+  lines.push(
+    effectiveSource
+      ? `可用 API Key 来源：${effectiveSource}${effectiveSource === "供应商配置" ? "（插件不保存副本）" : ""}`
+      : "可用 API Key 来源：无 —— 请在插件设置里填写，或为上面的供应商配上 Key",
+  );
   for (const modelId of models) {
     const model = provider.models[modelId];
     const state = reasoningState(model);

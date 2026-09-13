@@ -14,11 +14,13 @@
    想锁定版本就带上 ref（取最后一个 `#` 或 `@` 后面的部分作为 Git ref）：
 
    ```
-   andyfanybo/ZCode-DeepSeek#v0.1.0
+   andyfanybo/ZCode-DeepSeek#v0.1.1
    ```
 
 3. 在 Discover 里安装 **deepseek** 插件
-4. 在插件详情里填 **DeepSeek API Key**（在 https://platform.deepseek.com 生成）
+4. 配 **DeepSeek API Key**（在 https://platform.deepseek.com 生成），两种方式任选其一：
+   - 填在插件详情里的 `DeepSeek API Key` 字段（明文存在 ZCode 的插件配置里）；
+   - 或留空，改为在「设置 → 模型供应商」的 DeepSeek 供应商里填 Key，插件会复用它、不另存副本。
 5. **重启 ZCode** —— 配置在启动时读取，重启后在「设置 → 模型供应商」能看到 DeepSeek 及其模型，模型下拉的思考档位出现 `关/低/高/最高`
 
 之后每次会话启动，插件会自愈一次（ZCode 保存配置时可能抹掉每档参数，插件会补回来）。
@@ -49,6 +51,8 @@
 
 ## 安全提示（请在 README 里对用户讲清楚）
 
-这个插件会**修改用户的 ZCode 配置** `~/.zcode/v2/config.json`：新增/更新一个 DeepSeek 供应商、给它写模型与思考档位、并在用户填写了 Key 时写入 `options.apiKey`（明文，与 ZCode 自身保存 provider key 的方式一致）。它只增不改（默认不覆盖已有的档位配置），每次写入前会备份成 `config.json.deepseek-plugin.bak`。
+这个插件会**修改用户的 ZCode 配置** `~/.zcode/v2/config.json`：新增/更新一个 DeepSeek 供应商、给它写模型与思考档位、并在插件字段填了 Key 时写入 `options.apiKey`（明文，与 ZCode 自身保存 provider key 的方式一致）。它只增不改（默认不覆盖已有的档位配置），每次写入前会备份成 `config.json.deepseek-plugin.bak`。
+
+关于 API Key 的存放：填在插件里时，值明文保存在 ZCode 的插件配置（`~/.zcode/cli/config.json` 的 `plugins.options`）；也可以让插件字段留空，改为在「设置 → 模型供应商」里维护 Key，插件只复用、不另存副本。当前版本没法用 `sensitive: true` 加密该字段——标了 `sensitive` 的字段 UI 会拒绝编辑（提示「该值需要安全存储接入后才能配置」）。
 
 卸载插件后供应商不会自动消失，需要在「设置 → 模型供应商」里手动删除。

@@ -47,7 +47,8 @@ const child = spawn(process.execPath, [serverPath], {
   env: {
     ...process.env,
     DEEPSEEK_PLUGIN_CONFIG: configPath,
-    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || "sk-invalid-key-for-handshake-test",
+    // 用 ?? 而非 ||：显式传空字符串表示「测插件未填 Key、复用供应商 Key 的回退路径」
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? "sk-invalid-key-for-handshake-test",
     DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/anthropic",
   },
 });

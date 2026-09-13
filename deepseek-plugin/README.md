@@ -29,8 +29,11 @@ deepseek-plugin/
    - 终端用户：选「从 GitHub 仓库」，填 `andyfanybo/ZCode-DeepSeek`（仓库根已有市集清单），再在列表里安装 `deepseek`。
    - 本地开发：选本地目录，指向**含 `marketplace.json` 的仓库根**（`deepseek-marketplace/`），不是本插件目录——ZCode 加载的是市集清单，然后按清单里的相对路径找插件。
    > 插件注册表由应用自己管理（不在 `~/.zcode/cli/config.json` 这类可见文件里），所以不要手改文件来“安装”，走界面。
-2. **填 API Key**：在插件详情里填 `DeepSeek API Key`（在 https://platform.deepseek.com 生成）。
-   Key 通过环境变量注入插件进程（manifest 里 `"DEEPSEEK_API_KEY": "${user_config.api_key}"`），不会出现在命令行参数里——ZCode 的模板展开对 `sensitive` 字段做了限制：允许出现在 MCP 的 `env`，禁止出现在 `command`/`args`。
+2. **填 API Key**（两种方式任选其一）：
+   - **A. 填在插件里**：插件详情 → `DeepSeek API Key`。值经环境变量注入插件进程（`"DEEPSEEK_API_KEY": "${user_config.api_key}"`）。它会被 ZCode 存在插件配置 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek.api_key`，**明文**。
+   - **B. 不填，交给 ZCode 管**：留空即可。先在「设置 → 模型供应商」建一个 DeepSeek 供应商（Anthropic 格式、`https://api.deepseek.com/anthropic`）并填好 Key，插件会**复用这份 Key** 去拉模型列表，不再另存副本。`deepseek_status` 会显示 `可用 API Key 来源：供应商配置（插件不保存副本）`。
+
+   > 为什么不用 `sensitive: true` 把这个字段做成密文？因为标了 `sensitive` 的字段在当前版本里**根本没法编辑**——UI 会无条件渲染成「该值需要安全存储接入后才能配置」而不给输入框（安全存储尚未接入）。所以这里用的是可编辑的普通文本框。
 3. **重启 ZCode**：供应商列表在启动时读取。重启后在「设置 → 模型供应商」能看到 DeepSeek 及其模型，模型下拉的思考档位应出现 `关/低/高/最高`。
 
 启动时会自动同步一次（也可用 `/deepseek-setup` 或让 agent 调用 `deepseek_sync` 手动触发）。
@@ -49,7 +52,7 @@ deepseek-plugin/
 |---|---|
 | `"deepseek-plugin"` | 字符串 = 相对市集根目录的路径（最省事，单仓库自包含）。路径会被做越界检查：指向市集目录之外的绝对路径只在本地目录市集里有效，发布到 GitHub 时必须用相对路径 |
 | `{"source":"directory","path":"..."}` | 本地目录 |
-| `{"source":"github","repo":"you/repo","path":"deepseek-plugin","ref":"v0.1.0","sha":"..."}` | 从 `https://github.com/<repo>.git` 拉取 |
+| `{"source":"github","repo":"you/repo","path":"deepseek-plugin","ref":"v0.1.1","sha":"..."}` | 从 `https://github.com/<repo>.git` 拉取 |
 | `{"source":"git","url":"...","ref":"...","sha":"..."}` | 任意 Git 仓库 |
 | `{"source":"url","type":"zip","url":"https://...","sha256":"...","path":"..."}` | zip 包（官方就用这种） |
 
@@ -59,7 +62,7 @@ deepseek-plugin/
 
 ```
 andyfanybo/ZCode-DeepSeek          # 跟随默认分支
-andyfanybo/ZCode-DeepSeek#v0.1.0   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
+andyfanybo/ZCode-DeepSeek#v0.1.1   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
 ```
 
 清单字段取自官方 marketplace 的实际结构：`name` / `plugins[].name` / `plugins[].source` / `description` / `description_i18n` / `version` / `author` / `icon` / `category` / `keywords`。
@@ -102,7 +105,7 @@ andyfanybo/ZCode-DeepSeek#v0.1.0   # 锁定 tag（ref 取最后一个 # 或 @ �
 |---|---|---|
 | `kind` | `anthropic` | 走 Anthropic 格式端点 |
 | `options.baseURL` | `https://api.deepseek.com/anthropic` | 已有值不覆盖 |
-| `options.apiKey` | 插件里填的 Key | 只在填了 Key 时写入，日志里从不回显 |
+| `options.apiKey` | 插件里填的 Key | 只在插件字段填了值、且与现值不同时才写；留空则沿用供应商已有的 Key，不覆盖。日志里从不回显 |
 | `options.apiKeyRequired` | `true` | 仅新建时设置 |
 | `models.<id>.limit` | 如 `1000000 / 128000` | 来自 `MODEL_PRESETS` 表 |
 | `models.<id>.modalities` | `text` 输入 | DeepSeek 是纯文本模型，声明 image/video 会在挂图时报错 |
@@ -157,6 +160,16 @@ node scripts/test-client.mjs --dry-run                   # 只预览，不落盘
 - **每次启动都会同步一次**：这是「自愈」也是副作用——ZCode 可能在保存配置时抹掉每档参数，插件在下一个会话补回来（见上一节）。需要关闭就设 `DEEPSEEK_PLUGIN_AUTO_SYNC=0`（在 manifest 的 `env` 里加一项）。
 - **已有模型的 `modalities` 不会被改写**：插件只补缺失字段。如果你之前把 DeepSeek 模型声明成了 `image/video` 输入，插件不会纠正（挂图仍会失败）；想修就删掉该模型条目重新同步，或手工改成 `["text"]`。
 - **`关` 不是硬关闭**：ZCode 的 Anthropic 请求构造器只发 `thinking:{type:"enabled"}`，`disabled` 时它直接省略 thinking 参数。实测 DeepSeek 在这种情况下仍返回一个空的 thinking 块。
-- **Key 明文存储**：写进 `config.json` 的 `options.apiKey`（与 ZCode 自身存 provider key 的方式一致）。不想让插件落一份副本，就把 `userConfig.api_key` 留空，改为在「设置 → 模型供应商」里填。
+- **Key 的存储**：方式 A 会把 Key 明文存在 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek.api_key`，并（因为填了值）写一份到供应商的 `options.apiKey`。不想让插件落副本就用方式 B（插件字段留空），Key 只存在于 ZCode 自己的供应商配置里。
 - **插件进程启动在配置读取之后**：首次填 Key 后必须重启（或新开会话）才会生效。
-- **manifest 里的应用路径是机器相关的**（`C:\Program Files\ZCode\...`，官方插件同样如此）。打包分发时按目标机器调整，或把 `command` 换成 `node`（前提是用户机器上有 Node ≥18）。
+- **API Key 有两个来源**：插件设置里的值优先；为空时回退到供应商配置里的 Key。两者都没有时插件不做任何事，`deepseek_status` 会提示该怎么补。
+
+## 排障
+
+| 现象 | 原因与处理 |
+|---|---|
+| 插件设置里 Key 字段显示「该值需要安全存储接入后才能配置」，无法输入 | 字段被标成了 `sensitive: true`，而当前版本的安全存储尚未接入，UI 无条件屏蔽这类字段。删掉 `sensitive` 即可（本仓库 0.1.1 起已移除） |
+| 填了 Key 但模型没出现 | 配置在启动时读取，需要重启（或新开会话）。先 `deepseek_status` 确认是否已写入 |
+| 档位选了「低」没效果 | 该模型的档位只有名字、没有每档参数（被 ZCode 归一化过）。调一次 `deepseek_sync` 即可补全，状态里会标 `[档位缺参数，sync 可补全]` |
+| 报「拉取模型列表失败」 | `/models` 请求失败（Key 无效、网络或端点不对）。插件**不做任何写入**；修好后重新 sync |
+| 端点返回的模型 id 与配置里不同（`deepseek-flash` vs `deepseek-v4-flash`） | 同一模型的别名，由 `MODEL_ALIASES` 去重，不会出现两条 |

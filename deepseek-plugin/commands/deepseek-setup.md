@@ -7,7 +7,7 @@ skills: deepseek
 用 `deepseek` 技能完成 DeepSeek 集成：
 
 1. 先调用 `mcp__deepseek__deepseek_status` 看当前状态；
-2. 如果提示 API Key 未配置，告诉用户去「设置 → 插件管理 → DeepSeek → DeepSeek API Key」填写，然后**重启 ZCode**；
+2. 如果提示 API Key 未配置，告诉用户两条路任选其一：a) 在「设置 → 插件管理 → DeepSeek → DeepSeek API Key」里填写；b) 留空，改为在「设置 → 模型供应商」的 DeepSeek 供应商里填 Key（插件会复用、不另存副本）。之后都要**重启 ZCode**；
 3. 用户要求刷新模型或档位时，先 `deepseek_sync` 带 `dry_run: true` 预览，把将要写入的变更讲清楚，再询问是否落盘；
 4. 只有用户明确要求（或参数里出现 `overwrite`）时才传 `overwrite_levels: true`；
 5. 汇报时只说明写了哪些模型与档位，**不要输出任何密钥内容**。
