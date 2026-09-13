@@ -540,7 +540,8 @@ async function sync(options = {}) {
       `模型 id 已规范化：${report.migrated.join("、")}（ZCode 按 id 前缀决定档位画像，` +
         "以 deepseek-v4 开头的 id 才会让每档真正发出 effort 参数）。",
     );
-  }  if (report.degraded.length > 0) {
+  }
+  if (report.degraded.length > 0) {
     report.messages.push(
       `注意：${report.degraded.join("、")} 这些 id 不匹配 ZCode 内置的 DeepSeek 档位画像，` +
         "选任何档位都不会发出 effort 参数。建议在「设置 → 模型供应商」里删掉它们，改用规范化后的 id。",
