@@ -277,8 +277,11 @@ function looksLikeDeepSeekProvider(providerId, provider) {
 /**
  * 挑出插件要管理的那个供应商。
  *
- * 优先级：插件自己管理过的 > 有 API Key 的 > 有模型的 > 第一个。
- * 先看「插件管理过的」是为了稳定：一旦认领过，就不会因为候选顺序变化而跳到另一个供应商上。
+ * 优先级：插件管理过的 > 供应商 id 就是插件惯用的那个 > 有 API Key 的 > 有模型的。
+ *
+ * 为什么需要第二档：ZCode 保存配置时会重写模型条目，**连 `zcode.plugin` 归属标记
+ * 一起抹掉**，所以标记只能当尽力而为的信号。标记失效后如果同时存在多个候选
+ * （比如用户自己也建过一个），排序必须有个稳定依据，否则会在两者之间跳来跳去。
  */
 function findExistingProviderId(providers) {
   const candidates = Object.entries(providers || {}).filter(([id, provider]) =>
@@ -286,11 +289,12 @@ function findExistingProviderId(providers) {
   );
   if (candidates.length === 0) return null;
 
-  const rank = ([, provider]) => {
-    const managed = Object.values(provider?.models || {}).some((model) => isPluginManaged(model)) ? 3 : 0;
+  const rank = ([id, provider]) => {
+    const managed = Object.values(provider?.models || {}).some((model) => isPluginManaged(model)) ? 8 : 0;
+    const canonicalId = id.trim() === PROVIDER_ID_FALLBACK ? 2 : 0;
     const key = typeof provider?.options?.apiKey === "string" && provider.options.apiKey.trim() ? 1 : 0;
     const models = provider?.models && Object.keys(provider.models).length > 0 ? 1 : 0;
-    return managed + key + models;
+    return managed + canonicalId + key + models;
   };
   return candidates.slice().sort((a, b) => rank(b) - rank(a))[0][0];
 }

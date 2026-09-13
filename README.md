@@ -4,26 +4,40 @@
 
 ## 用户怎么安装
 
-1. ZCode → **设置 → 插件管理 → Discover → 新建**（`+`）
-2. 选择从 **GitHub 仓库** 添加，填：
+实际界面路径（跟着点即可）：
+
+1. 打开 ZCode 主页面 → 左上角 **插件市场**
+2. 右上角 **创建**（有的入口显示为「新建」）→ 在弹出的输入框里填本仓库地址：
 
    ```
    andyfanybo/ZCode-DeepSeek
    ```
 
-   想锁定版本就带上 ref（取最后一个 `#` 或 `@` 后面的部分作为 Git ref）：
+   完整的 GitHub 链接也行：
 
    ```
-   andyfanybo/ZCode-DeepSeek#v0.1.1
+   https://github.com/andyfanybo/ZCode-DeepSeek
    ```
 
-3. 在 Discover 里安装 **deepseek** 插件
-4. 配 **DeepSeek API Key**（在 https://platform.deepseek.com 生成），两种方式任选其一：
-   - 填在插件详情里的 `DeepSeek API Key` 字段（明文存在 ZCode 的插件配置里）；
-   - 或留空，改为在「设置 → 模型供应商」的 DeepSeek 供应商里填 Key，插件会复用它、不另存副本。
+   想锁定版本就带 ref（取最后一个 `#` 或 `@` 之后的部分作为 Git ref）：
+
+   ```
+   andyfanybo/ZCode-DeepSeek#v0.1.3
+   ```
+
+   > 输入框的解析规则（源码 `parseMarketplaceSourceInput`）：`http(s)://` 开头的 GitHub 链接会被转成 git 拉取；`owner/repo` 这种简写走 GitHub 仓库源；也支持 Git URL、本地目录、`.json` 文件。填错会直接报 `Unsupported marketplace source`。
+
+3. 回到插件市场首页，切到 **个人** 分区（你自己添加的市场源都在这里；官方源在 **公开** 分区）→ 找到 **deepseek** → 点 **安装**
+4. 点插件名称进入**高级信息**，配 **DeepSeek API Key**（在 https://platform.deepseek.com 生成），两种方式任选其一：
+   - 填在 `DeepSeek API Key` 字段后点 **保存配置**（明文存在 ZCode 的插件配置里）；
+   - 或**留空**，改为在「设置 → 模型供应商」的 DeepSeek 供应商里填 Key，插件会复用它、不另存副本。
+
+   > 点「保存配置」后界面**没有成功提示**，看起来像没反应——这是正常表现，值已经写进 `~/.zcode/cli/config.json` 的 `plugins.options`。
 5. **重启 ZCode** —— 配置在启动时读取，重启后在「设置 → 模型供应商」能看到 DeepSeek 及其模型，模型下拉的思考档位出现 `关/低/高/最高`
 
 之后每次会话启动，插件会自愈一次（ZCode 保存配置时可能抹掉每档参数，插件会补回来）。
+
+想更新插件版本：在「个人」分区里对插件执行更新，或对市场源点「刷新该市场」。
 
 ## 环境要求
 

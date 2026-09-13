@@ -25,9 +25,11 @@ deepseek-plugin/
 
 ## 安装（三步）
 
-1. **把插件加进 ZCode**：设置 → 插件管理 → Discover → 右上角「+」。
-   - 终端用户：选「从 GitHub 仓库」，填 `andyfanybo/ZCode-DeepSeek`（仓库根已有市集清单），再在列表里安装 `deepseek`。
-   - 本地开发：选本地目录，指向**含 `marketplace.json` 的仓库根**（`deepseek-marketplace/`），不是本插件目录——ZCode 加载的是市集清单，然后按清单里的相对路径找插件。
+1. **把插件加进 ZCode**（实际界面路径）：
+   1. 打开 ZCode 主页面 → 左上角 **插件市场**
+   2. 右上角 **创建**（有的入口显示为「新建」）→ 填本仓库地址 `andyfanybo/ZCode-DeepSeek`（完整链接 `https://github.com/andyfanybo/ZCode-DeepSeek` 也行；带 `#v0.1.2` 可锁版本）
+   3. 回插件市场首页 → 切到 **个人** 分区（自建市场源都在这里，官方源在 **公开**）→ 找到 **deepseek** → 点 **安装**
+   - 本地开发：第 2 步改成选本地目录，指向**含 `marketplace.json` 的仓库根**（`deepseek-marketplace/`），不是本插件目录——ZCode 加载的是市集清单，然后按清单里的相对路径找插件。
    > 插件注册表由应用自己管理（不在 `~/.zcode/cli/config.json` 这类可见文件里），所以不要手改文件来“安装”，走界面。
 2. **填 API Key**（两种方式任选其一）：
    - **A. 填在插件里**：插件详情 → `DeepSeek API Key`。值经环境变量注入插件进程（`"DEEPSEEK_API_KEY": "${user_config.api_key}"`）。它会被 ZCode 存在插件配置 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek.api_key`，**明文**。
@@ -46,7 +48,7 @@ deepseek-plugin/
 
 ### 用户怎么添加你的市集
 
-设置 → 插件管理 → Discover →「+」，支持四种来源（源码 `resolveMarketplaceSource` 分支）：GitHub 简写 `owner/repo`、Git URL、`.json` 文件、**本地目录**。市集清单放在仓库根的 `marketplace.json`（也认 `.claude-plugin/marketplace.json`）。
+主页面 → 左上角 **插件市场** → 右上角 **创建** → 填来源。输入框解析规则（源码 `parseMarketplaceSourceInput`）：`http(s)://` 开头的 GitHub 链接转成 git 拉取；`owner/repo` 简写走 GitHub 源；也支持 Git URL、本地目录、`.json` 文件；都不是则报 `Unsupported marketplace source`。添加后市场源出现在 **个人** 分区。市集清单放在仓库根的 `marketplace.json`（也认 `.claude-plugin/marketplace.json`）。
 
 ### 插件条目支持的 source 形态
 
@@ -56,7 +58,7 @@ deepseek-plugin/
 |---|---|
 | `"deepseek-plugin"` | 字符串 = 相对市集根目录的路径（最省事，单仓库自包含）。路径会被做越界检查：指向市集目录之外的绝对路径只在本地目录市集里有效，发布到 GitHub 时必须用相对路径 |
 | `{"source":"directory","path":"..."}` | 本地目录 |
-| `{"source":"github","repo":"you/repo","path":"deepseek-plugin","ref":"v0.1.1","sha":"..."}` | 从 `https://github.com/<repo>.git` 拉取 |
+| `{"source":"github","repo":"you/repo","path":"deepseek-plugin","ref":"v0.1.3","sha":"..."}` | 从 `https://github.com/<repo>.git` 拉取 |
 | `{"source":"git","url":"...","ref":"...","sha":"..."}` | 任意 Git 仓库 |
 | `{"source":"url","type":"zip","url":"https://...","sha256":"...","path":"..."}` | zip 包（官方就用这种） |
 
@@ -66,7 +68,7 @@ deepseek-plugin/
 
 ```
 andyfanybo/ZCode-DeepSeek          # 跟随默认分支
-andyfanybo/ZCode-DeepSeek#v0.1.1   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
+andyfanybo/ZCode-DeepSeek#v0.1.3   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
 ```
 
 清单字段取自官方 marketplace 的实际结构：`name` / `plugins[].name` / `plugins[].source` / `description` / `description_i18n` / `version` / `author` / `icon` / `category` / `keywords`。
@@ -115,15 +117,17 @@ andyfanybo/ZCode-DeepSeek#v0.1.1   # 锁定 tag（ref 取最后一个 # 或 @ �
 | `models.<id>.modalities` | `text` 输入 | DeepSeek 是纯文本模型，声明 image/video 会在挂图时报错 |
 | `models.<id>.reasoning` | `levels` + `providerOptionsByLevel` | 运行时读取的那一份 |
 | `models.<id>.reasoningSpec` | 同上的补丁形态 | 兜底：某些版本只认这一种 |
-| `models.<id>.zcode.plugin` | `deepseek` | 归属标记：区分「插件写的（可刷新）」与「用户写的（不覆盖）」 |
+| `models.<id>.zcode.plugin` | `deepseek` | 归属标记，用于识别「插件写的」。**不是永久有效的**：ZCode 重写模型条目时会把它一起抹掉（见下节），所以它只是尽力而为的信号，判定还依赖「有档位名却没有每档参数」这个特征 |
 
 档位最终会被 ZCode 翻译成请求体里的 `output_config.effort` 与 `thinking`，例如 `低` → `{"thinking":{"type":"enabled","budget_tokens":1024},"output_config":{"effort":"low"}}`。
 
-### 一个必须知道的行为：ZCode 会「归一化」模型，丢掉每档参数
+### 一个必须知道的行为：ZCode 会「归一化」模型，丢掉每档参数和归属标记
 
-ZCode 保存供应商时会把模型改写成 `{"enabled": true, "variants": ["off","low","high","max"], "defaultVariant": "max"}` —— **`reasoning.levels`、`providerOptionsByLevel` 和整个 `reasoningSpec` 都会被清掉**。后果是：档位名还在（界面上「低」照样能选），但选中后不会发出任何 `effort`，等于空档位。
+ZCode 保存供应商时会把模型改写成 `{"enabled": true, "variants": ["off","low","high","max"], "defaultVariant": "max"}` —— **`reasoning.levels`、`providerOptionsByLevel`、整个 `reasoningSpec`，以及 `zcode.plugin` 归属标记都会被清掉**。后果是：档位名还在（界面上「低」照样能选），但选中后不会发出任何 `effort`，等于空档位。
 
-所以插件的判定不是「有档位就跳过」，而是区分两种情况：
+这是实测到的、且会**反复发生**：我在一次会话中写入正确档位，ZCode 随后重写配置文件，参数与标记全部消失（`providerOptionsByLevel=[] reasoningSpec=[] 插件标记=None`，只留下 `variants`）。所以插件每次会话启动同步一次不是多余的。
+
+正因如此，判定不能只靠标记（它会消失），而要区分两种情况：
 
 | 模型状态 | 插件动作 |
 |---|---|
