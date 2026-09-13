@@ -27,6 +27,7 @@ description: 用 DeepSeek 插件的 MCP 工具检查状态、拉取模型、同�
 ## 语义与边界
 
 - **API Key 有两个来源**：插件设置里的值优先，为空时回退到供应商配置里已有的 Key（这样用户可以完全不把 Key 交给插件）。两者都没有时插件什么都不写，只报告该怎么做。
+- **只接管一个供应商**：按 baseURL / 名称 / 供应商 id / 模型 id 判断哪些是「DeepSeek 的」，优先接管插件管理过的那个（避免在候选之间跳来跳去），其余只在报告里列出、不做改动。
 - **幂等**：重复运行不会重复写入；没有变更时连文件都不写。
 - **不覆盖用户配置**：已有完整档位的模型默认跳过（状态里标为「用户配置」），需要覆盖时显式传 `overwrite_levels: true`。
 - **拉不到模型列表就什么都不写**：避免留下「有供应商但没模型」的半成品。
@@ -34,8 +35,10 @@ description: 用 DeepSeek 插件的 MCP 工具检查状态、拉取模型、同�
 
 ## 常见问题
 
+0. **用户说「填了 Key 点保存配置没反应」** — 先别急着排查：保存成功时 UI **没有任何成功提示**，这属于正常表现。真正的判断依据是 `~/.zcode/cli/config.json` 里的 `plugins.options[<pluginId>]`（pluginId 形如 `deepseek@<marketplace>`）是否已包含 `api_key`。已写入就说明保存成功，直接看下一步；没写入再查保存失败的原因。
 1. **插件设置里的 Key 字段显示「该值需要安全存储接入后才能配置」、根本没法输入** — 该字段被标了 `sensitive: true`，而当前版本的安全存储尚未接入：UI 会**无条件**把这类字段渲染成这条提示、不给输入框。这不是配置错误，改法是从 manifest 的 `userConfig.<字段>` 里删掉 `"sensitive": true`（本仓库 0.1.1 起已移除）。若用户已在别处配过 Key，也可以不改 manifest，直接让插件走回退路径。
-2. **填了 Key，模型没出现** — 配置在 ZCode 启动时读取，需要重启（或新开会话）。也可先 `deepseek_status` 确认是否已写入。
+2. **模型列表里有两个 DeepSeek 供应商** — 插件只接管一个（优先接管它自己管理过的），另一个是用户自己建的，插件不会动它。建议用户删掉不用的那个，避免混淆。
+3. **填了 Key，模型没出现** — 配置在 ZCode 启动时读取，需要重启（或新开会话）。也可先 `deepseek_status` 确认是否已写入。
 2. **档位名有，但选「低」没有任何效果** — 这是最典型的坑：ZCode 保存配置时会把模型归一化成 `{enabled, variants, defaultVariant}` 并**丢掉每档的参数**，档位名还在、但选中后不会发出 `effort`。`deepseek_status` 里这类模型会标成 `[档位缺参数，sync 可补全]`，调一次 `deepseek_sync` 即可补全（不需要 `overwrite_levels`）。
 3. **档位还是只有「关/高/最高」** — 该模型的档位是用户自己配的完整配置，默认不覆盖。先 `deepseek_sync {dry_run: true}` 预览，再 `deepseek_sync {overwrite_levels: true}` 落盘。
 4. **想加档位**（`medium` / `xhigh` / `ultra`，DeepSeek 端点都认）— 在 `THINKING_LEVELS` 里照着加一行，然后重新 `deepseek_sync`。注意 ZCode 界面只内置了 off/low/high/xhigh/max 的中文标签，其它档位名会显示英文原名。

@@ -260,22 +260,46 @@ function reasoningState(model) {
 // 同步（核心逻辑）
 // ---------------------------------------------------------------------------
 
-function findExistingProviderId(providers) {
-  const looksLikeDeepSeek = (provider) =>
-    (typeof provider?.options?.baseURL === "string" &&
-      provider.options.baseURL.toLowerCase().includes(DEEPSEEK_HOST)) ||
-    (typeof provider?.name === "string" && /deepseek/i.test(provider.name));
+/**
+ * 判断一个供应商是不是「DeepSeek 的」。
+ *
+ * 只看名字和 baseURL 会漏判：用户可能把它命名成 "DS"、或换过名字。
+ * 所以供应商 id、模型 id 也一起看——模型 id 是最可靠的信号。
+ */
+function looksLikeDeepSeekProvider(providerId, provider) {
+  const baseURL = typeof provider?.options?.baseURL === "string" ? provider.options.baseURL.toLowerCase() : "";
+  if (baseURL.includes(DEEPSEEK_HOST)) return true;
+  if (typeof provider?.name === "string" && /deepseek/i.test(provider.name)) return true;
+  if (/deepseek/i.test(String(providerId))) return true;
+  return Object.keys(provider?.models || {}).some((modelId) => /deepseek/i.test(modelId));
+}
 
-  const candidates = Object.entries(providers || {}).filter(([, provider]) => looksLikeDeepSeek(provider));
+/**
+ * 挑出插件要管理的那个供应商。
+ *
+ * 优先级：插件自己管理过的 > 有 API Key 的 > 有模型的 > 第一个。
+ * 先看「插件管理过的」是为了稳定：一旦认领过，就不会因为候选顺序变化而跳到另一个供应商上。
+ */
+function findExistingProviderId(providers) {
+  const candidates = Object.entries(providers || {}).filter(([id, provider]) =>
+    looksLikeDeepSeekProvider(id, provider),
+  );
   if (candidates.length === 0) return null;
 
-  const hasKey = candidates.find(
-    ([, provider]) => typeof provider?.options?.apiKey === "string" && provider.options.apiKey.trim().length > 0,
-  );
-  const hasModels = candidates.find(
-    ([, provider]) => provider?.models && Object.keys(provider.models).length > 0,
-  );
-  return (hasKey || hasModels || candidates[0])[0];
+  const rank = ([, provider]) => {
+    const managed = Object.values(provider?.models || {}).some((model) => isPluginManaged(model)) ? 3 : 0;
+    const key = typeof provider?.options?.apiKey === "string" && provider.options.apiKey.trim() ? 1 : 0;
+    const models = provider?.models && Object.keys(provider.models).length > 0 ? 1 : 0;
+    return managed + key + models;
+  };
+  return candidates.slice().sort((a, b) => rank(b) - rank(a))[0][0];
+}
+
+/** 其余看起来也是 DeepSeek、但插件不会去动的供应商，用于提示用户避免混淆。 */
+function findOtherDeepSeekProviderIds(providers, managedId) {
+  return Object.entries(providers || {})
+    .filter(([id, provider]) => id !== managedId && looksLikeDeepSeekProvider(id, provider))
+    .map(([id, provider]) => `${id}（名称：${provider?.name || "未命名"}）`);
 }
 
 async function sync(options = {}) {
@@ -299,6 +323,7 @@ async function sync(options = {}) {
     unchanged: [],
     skipped: [],
     kept: [],
+    otherProviders: [],
     fetchError: null,
     dryRun,
     wrote: false,
@@ -326,6 +351,7 @@ async function sync(options = {}) {
   }
   const existing = providers[providerId] || null;
   const effectiveBaseURL = (existing?.options?.baseURL || "").trim() || baseURL;
+  report.otherProviders = findOtherDeepSeekProviderIds(providers, providerId);
 
   // API Key 有两个来源：插件设置里填的值，或用户已经为 DeepSeek 供应商配好的那个。
   // 后者让用户可以完全不把 Key 交给插件（改为在「设置 → 模型供应商」里维护）。
@@ -466,6 +492,12 @@ async function sync(options = {}) {
   } else {
     report.messages.push("没有需要变更的内容。");
   }
+  if (report.otherProviders.length > 0) {
+    report.messages.push(
+      `另外还有 ${report.otherProviders.length} 个看起来也是 DeepSeek 的供应商，插件不会改动它们：${report.otherProviders.join("、")}。` +
+        "如果不是你在用的那个，建议在「设置 → 模型供应商」里删掉或改名，避免模型列表里出现重复项。",
+    );
+  }
   return report;
 }
 
@@ -547,6 +579,10 @@ async function statusReport() {
     lines.push(
       `  - ${modelId}  档位：${state.levelNames.length ? state.levelNames.join("/") : "无"}  上下文：${context}  [${scope}]`,
     );
+  }
+  const others = findOtherDeepSeekProviderIds(providers, providerId);
+  if (others.length > 0) {
+    lines.push(`另有未接管的 DeepSeek 供应商（插件不改动）：${others.join("、")}`);
   }
   return lines.join("\n");
 }

@@ -1,6 +1,6 @@
 {
   "name": "deepseek",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DeepSeek provider for ZCode: fill in one API key and the plugin provisions the provider, its models, and per-model thinking levels into ZCode's provider store.",
   "author": {
     "name": "andyfanybo"

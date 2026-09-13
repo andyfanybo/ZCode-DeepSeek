@@ -33,8 +33,12 @@ deepseek-plugin/
    - **A. 填在插件里**：插件详情 → `DeepSeek API Key`。值经环境变量注入插件进程（`"DEEPSEEK_API_KEY": "${user_config.api_key}"`）。它会被 ZCode 存在插件配置 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek.api_key`，**明文**。
    - **B. 不填，交给 ZCode 管**：留空即可。先在「设置 → 模型供应商」建一个 DeepSeek 供应商（Anthropic 格式、`https://api.deepseek.com/anthropic`）并填好 Key，插件会**复用这份 Key** 去拉模型列表，不再另存副本。`deepseek_status` 会显示 `可用 API Key 来源：供应商配置（插件不保存副本）`。
 
+   > 点了「保存配置」界面**不会有成功提示**（按钮只在请求期间禁用，成功后既不弹窗也不变灰），所以看起来像「没反应」。值其实已经写进 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek` 了；想确认就看那个文件，或重启后调 `deepseek_status`。
+
    > 为什么不用 `sensitive: true` 把这个字段做成密文？因为标了 `sensitive` 的字段在当前版本里**根本没法编辑**——UI 会无条件渲染成「该值需要安全存储接入后才能配置」而不给输入框（安全存储尚未接入）。所以这里用的是可编辑的普通文本框。
 3. **重启 ZCode**：供应商列表在启动时读取。重启后在「设置 → 模型供应商」能看到 DeepSeek 及其模型，模型下拉的思考档位应出现 `关/低/高/最高`。
+
+   > 如果模型选择器里有**两个** DeepSeek 供应商（比如你自己建过一个、插件又建了一个），认准带插件模型的那个：模型 id 为 `deepseek-flash` / `deepseek-v4-pro`、档位四档齐全的那个是插件管理的。另一个可以删掉。
 
 启动时会自动同步一次（也可用 `/deepseek-setup` 或让 agent 调用 `deepseek_sync` 手动触发）。
 
@@ -168,6 +172,8 @@ node scripts/test-client.mjs --dry-run                   # 只预览，不落盘
 
 | 现象 | 原因与处理 |
 |---|---|
+| 点「保存配置」没反应 | 正常：保存成功时 UI 没有成功提示（按钮只在请求期间禁用）。值已写入 `~/.zcode/cli/config.json` 的 `plugins.options.deepseek`；用 `deepseek_status` 或直接看该文件确认 |
+| 模型列表里出现两个 DeepSeek 供应商 | 插件只接管一个：按 baseURL / 名称 / 供应商 id / 模型 id 匹配，优先接管插件管理过的那个，其余只在报告里列出、不做改动。把不用的那个在「设置 → 模型供应商」里删掉或改名即可 |
 | 插件设置里 Key 字段显示「该值需要安全存储接入后才能配置」，无法输入 | 字段被标成了 `sensitive: true`，而当前版本的安全存储尚未接入，UI 无条件屏蔽这类字段。删掉 `sensitive` 即可（本仓库 0.1.1 起已移除） |
 | 填了 Key 但模型没出现 | 配置在启动时读取，需要重启（或新开会话）。先 `deepseek_status` 确认是否已写入 |
 | 档位选了「低」没效果 | 该模型的档位只有名字、没有每档参数（被 ZCode 归一化过）。调一次 `deepseek_sync` 即可补全，状态里会标 `[档位缺参数，sync 可补全]` |
