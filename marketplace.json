@@ -1,0 +1,25 @@
+{
+  "name": "deepseek-marketplace",
+  "plugins": [
+    {
+      "name": "deepseek",
+      "source": "deepseek-plugin",
+      "description": "DeepSeek provider for ZCode: fill in one API key, the plugin provisions the provider, its models, and per-model thinking levels (off/low/high/max) into ZCode's provider store.",
+      "description_i18n": {
+        "zh-CN": "DeepSeek 供应商：只填一个 API Key，自动同步模型与思考档位（关/低/高/最高）。"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "andyfanybo"
+      },
+      "category": "developer-tools",
+      "keywords": [
+        "deepseek",
+        "provider",
+        "model",
+        "reasoning",
+        "mcp"
+      ]
+    }
+  ]
+}

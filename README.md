@@ -1,0 +1,54 @@
+# deepseek-marketplace
+
+一个 ZCode 插件市集，目前只含一个插件：[`deepseek-plugin`](./deepseek-plugin) —— 只填一个 API Key，自动把 DeepSeek 供应商、模型列表和每个模型的思考档位（关/低/高/最高）写进 ZCode 配置。
+
+## 用户怎么安装
+
+1. ZCode → **设置 → 插件管理 → Discover → 新建**（`+`）
+2. 选择从 **GitHub 仓库** 添加，填：
+
+   ```
+   andyfanybo/deepseek-marketplace
+   ```
+
+   想锁定版本就带上 ref（取最后一个 `#` 或 `@` 后面的部分作为 Git ref）：
+
+   ```
+   andyfanybo/deepseek-marketplace#v0.1.0
+   ```
+
+3. 在 Discover 里安装 **deepseek** 插件
+4. 在插件详情里填 **DeepSeek API Key**（在 https://platform.deepseek.com 生成）
+5. **重启 ZCode** —— 配置在启动时读取，重启后在「设置 → 模型供应商」能看到 DeepSeek 及其模型，模型下拉的思考档位出现 `关/低/高/最高`
+
+之后每次会话启动，插件会自愈一次（ZCode 保存配置时可能抹掉每档参数，插件会补回来）。
+
+## 环境要求
+
+- **需要 Node ≥ 18 在 PATH 上**：插件的 MCP 服务器用 `node` 启动（manifest 里 `command: "node"`），因为自建市集的插件不会被运行时自动补全启动命令。你的机器上如果有疑虑，先跑 `node -v` 确认。
+- 平台的其它部分（Windows / macOS / Linux）与架构无关：`dist/mcp/server.js` 是纯 Node ESM，零依赖。
+
+## 仓库结构
+
+```
+.
+├── marketplace.json          # 市集清单（ZCode 拉取的就是它）
+└── deepseek-plugin/          # 插件本体
+    ├── .zcode-plugin/plugin.json
+    ├── dist/mcp/server.js
+    ├── commands/  skills/  scripts/  README.md
+```
+
+市集清单里的 `plugins[].source` 是**相对本仓库根目录的路径**（`"deepseek-plugin"`）——ZCode 要求它落在市集根目录内，所以不要写绝对路径。
+
+## 维护
+
+- 改插件后，**两处版本号要一起改**：`marketplace.json` 的 `plugins[].version` 和 `deepseek-plugin/.zcode-plugin/plugin.json` 的 `version`。ZCode 靠版本号判断更新。
+- 发布时打 tag（`git tag v0.1.0 && git push --tags`），用户就能用 `#v0.1.0` 锁定版本。
+- 想换成 zip/CDN 分发，就把 `source` 改成 `{"source":"url","type":"zip","url":"https://...","sha256":"...","path":"deepseek-plugin"}`（官方在用这种形态）。
+
+## 安全提示（请在 README 里对用户讲清楚）
+
+这个插件会**修改用户的 ZCode 配置** `~/.zcode/v2/config.json`：新增/更新一个 DeepSeek 供应商、给它写模型与思考档位、并在用户填写了 Key 时写入 `options.apiKey`（明文，与 ZCode 自身保存 provider key 的方式一致）。它只增不改（默认不覆盖已有的档位配置），每次写入前会备份成 `config.json.deepseek-plugin.bak`。
+
+卸载插件后供应商不会自动消失，需要在「设置 → 模型供应商」里手动删除。

@@ -1,0 +1,47 @@
+{
+  "name": "deepseek",
+  "version": "0.1.0",
+  "description": "DeepSeek provider for ZCode: fill in one API key and the plugin provisions the provider, its models, and per-model thinking levels into ZCode's provider store.",
+  "author": {
+    "name": "andyfanybo"
+  },
+  "license": "MIT",
+  "skills": "skills",
+  "commands": "commands",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "DeepSeek API Key",
+      "description": "在 https://platform.deepseek.com 生成。保存在插件设置里，通过环境变量注入插件进程，不会出现在命令行中；不填写则插件不做任何改动。",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "base_url": {
+      "type": "string",
+      "title": "API 基础地址",
+      "description": "ZCode 侧使用 Anthropic 格式端点。插件会自动去掉 /anthropic 后缀去拉模型列表。",
+      "default": "https://api.deepseek.com/anthropic"
+    },
+    "overwrite_levels": {
+      "type": "boolean",
+      "title": "覆盖已有模型的思考档位",
+      "description": "默认关闭：只给缺失档位的模型补写，不覆盖你（或 ZCode）已经写好的档位配置。",
+      "default": false
+    }
+  },
+  "mcpServers": {
+    "deepseek": {
+      "command": "node",
+      "args": [
+        "${ZCODE_PLUGIN_ROOT}/dist/mcp/server.js"
+      ],
+      "env": {
+        "ZCODE_PLUGIN_ID": "deepseek",
+        "DEEPSEEK_API_KEY": "${user_config.api_key}",
+        "DEEPSEEK_BASE_URL": "${user_config.base_url}",
+        "DEEPSEEK_OVERWRITE_LEVELS": "${user_config.overwrite_levels}"
+      }
+    }
+  }
+}
