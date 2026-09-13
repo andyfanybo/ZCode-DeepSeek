@@ -1,4 +1,4 @@
-# deepseek-marketplace
+# ZCode-DeepSeek
 
 一个 ZCode 插件市集，目前只含一个插件：[`deepseek-plugin`](./deepseek-plugin) —— 只填一个 API Key，自动把 DeepSeek 供应商、模型列表和每个模型的思考档位（关/低/高/最高）写进 ZCode 配置。
 
@@ -8,13 +8,13 @@
 2. 选择从 **GitHub 仓库** 添加，填：
 
    ```
-   andyfanybo/deepseek-marketplace
+   andyfanybo/ZCode-DeepSeek
    ```
 
    想锁定版本就带上 ref（取最后一个 `#` 或 `@` 后面的部分作为 Git ref）：
 
    ```
-   andyfanybo/deepseek-marketplace#v0.1.0
+   andyfanybo/ZCode-DeepSeek#v0.1.0
    ```
 
 3. 在 Discover 里安装 **deepseek** 插件

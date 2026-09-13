@@ -26,7 +26,7 @@ deepseek-plugin/
 ## 安装（三步）
 
 1. **把插件加进 ZCode**：设置 → 插件管理 → Discover → 右上角「+」。
-   - 终端用户：选「从 GitHub 仓库」，填 `andyfanybo/deepseek-marketplace`（仓库根已有市集清单），再在列表里安装 `deepseek`。
+   - 终端用户：选「从 GitHub 仓库」，填 `andyfanybo/ZCode-DeepSeek`（仓库根已有市集清单），再在列表里安装 `deepseek`。
    - 本地开发：选本地目录，指向**含 `marketplace.json` 的仓库根**（`deepseek-marketplace/`），不是本插件目录——ZCode 加载的是市集清单，然后按清单里的相对路径找插件。
    > 插件注册表由应用自己管理（不在 `~/.zcode/cli/config.json` 这类可见文件里），所以不要手改文件来“安装”，走界面。
 2. **填 API Key**：在插件详情里填 `DeepSeek API Key`（在 https://platform.deepseek.com 生成）。
@@ -58,8 +58,8 @@ deepseek-plugin/
 仓库根已经放好可直接使用的 `marketplace.json`，`plugins[].source` 是相对路径 `"deepseek-plugin"`。用户在「新建 → 从 GitHub 仓库」里填：
 
 ```
-andyfanybo/deepseek-marketplace          # 跟随默认分支
-andyfanybo/deepseek-marketplace#v0.1.0   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
+andyfanybo/ZCode-DeepSeek          # 跟随默认分支
+andyfanybo/ZCode-DeepSeek#v0.1.0   # 锁定 tag（ref 取最后一个 # 或 @ 之后的部分）
 ```
 
 清单字段取自官方 marketplace 的实际结构：`name` / `plugins[].name` / `plugins[].source` / `description` / `description_i18n` / `version` / `author` / `icon` / `category` / `keywords`。
